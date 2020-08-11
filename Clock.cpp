@@ -20,7 +20,6 @@
 RTC_PCF8523 rtcClock;
 DateTime dtCurrentDisplayedTime;
 
-
 const int MINS_GETDIGIT           = 0;
 const int TENS_OF_MINS_GETDIGIT   = 1;
 const int HOURS_GETDIGIT          = 2;
@@ -96,6 +95,9 @@ void MoveDigit(const Coordinates waypointsArray[][NUMBER_OF_WAYPOINTS], int iNum
 }
 //=========================================
 // H a s A M i n u t e P a s s e d
+//
+// This expects both times to be in 24h
+// notation
 //=========================================
 bool HasAMinutePassed() {
   DateTime dtNow = rtcClock.now();
@@ -168,6 +170,27 @@ void RTCInit() {
 
     //dtCurrentDisplayedTime = rtcClock.now();
 }
+//===============================================
+// C o n v e r t 2 4 h T i m e T o 1 2 h T i m e
+//===============================================
+DateTime Convert24hTimeTo12hTime(DateTime dtTime) {
+
+      //Display time as 12h time as opposed to 24h
+    if (dtTime.hour() >= 13 ) {
+      return(DateTime(dtTime.year(),dtTime.month(),dtTime.day(),dtTime.hour() - 12,dtTime.minute(),dtTime.second()));
+    }
+}
+//=========================================
+// P r i n t T i m e
+//=========================================
+void PrintTime(DateTime dtTime) {
+    SerialUSB.print(GetDigit(dtTime,TENS_OF_HOURS_GETDIGIT));
+    SerialUSB.print(GetDigit(dtTime,HOURS_GETDIGIT));
+    SerialUSB.print(":");
+    SerialUSB.print(GetDigit(dtTime,TENS_OF_MINS_GETDIGIT));
+    SerialUSB.print(GetDigit(dtTime,MINS_GETDIGIT));
+    SerialUSB.print("\n");
+}
 //=============================================
 // I n i t i a l i z e C l o c k D i s p l a y
 //
@@ -180,18 +203,11 @@ void InitializeClockDisplay() {
   dtCurrentDisplayedTime = rtcClock.now();
 
   //Display time as 12h time as opposed to 24h
-    if (dtCurrentDisplayedTime.hour() >= 13 ) {
-      dtNewDisplayedTime = DateTime(dtCurrentDisplayedTime.year(),dtCurrentDisplayedTime.month(),dtCurrentDisplayedTime.day(),dtCurrentDisplayedTime.hour() - 12,dtCurrentDisplayedTime.minute(),dtCurrentDisplayedTime.second());
-    }
+  dtNewDisplayedTime = Convert24hTimeTo12hTime(dtCurrentDisplayedTime);
 
-    SerialUSB.print("\n\nSetting initial time: ");
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,TENS_OF_HOURS_GETDIGIT));
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,HOURS_GETDIGIT));
-    SerialUSB.print(":");
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,TENS_OF_MINS_GETDIGIT));
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,MINS_GETDIGIT));
-    SerialUSB.print("\n");
-
+  SerialUSB.print("\n\nSetting initial time: ");
+  PrintTime(dtNewDisplayedTime);
+  
   MoveDigit(minutes, GetDigit(dtNewDisplayedTime,MINS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
   MoveDigit(tensOfMinutes, GetDigit(dtNewDisplayedTime,TENS_OF_MINS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
   MoveDigit(hours, GetDigit(dtNewDisplayedTime,HOURS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
@@ -214,17 +230,18 @@ void UpdateDisplayTime() {
     }
 
     //Display time as 12h time as opposed to 24h
-    if (dtNow.hour() >= 13 ) {
-      dtNewDisplayedTime = DateTime(dtNow.year(),dtNow.month(),dtNow.day(),dtNow.hour() - 12,dtNow.minute(),dtNow.second());
-    }
+    dtNewDisplayedTime = Convert24hTimeTo12hTime(dtNow);
+    dtCurrentDisplayedTime = Convert24hTimeTo12hTime(dtCurrentDisplayedTime);
 
-    SerialUSB.print("\n\nCurrent time: ");
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,TENS_OF_HOURS_GETDIGIT));
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,HOURS_GETDIGIT));
-    SerialUSB.print(":");
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,TENS_OF_MINS_GETDIGIT));
-    SerialUSB.print(GetDigit(dtNewDisplayedTime,MINS_GETDIGIT));
-    SerialUSB.print("\n");
+    //Just to clarify, at this point we have 3 DateTime variables
+    //                 dtNow = current time read from RTC in 24h format
+    //    dtNewDisplayedTime = current time read from RTC in 12h format
+    //dtCurrentDisplayedTime = time that is currently being displayed and is going to be replaced
+
+    SerialUSB.print("\n\nCurrently displayed time: ");
+    PrintTime(dtCurrentDisplayedTime);
+    SerialUSB.print("New time: ");
+    PrintTime(dtNewDisplayedTime);
     
     // We know the minute has changed 
     // so swap digits
@@ -232,24 +249,25 @@ void UpdateDisplayTime() {
     MoveDigit(minutes, GetDigit(dtNewDisplayedTime,MINS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
 
     //compare current 10s of minutes 
-    if (GetDigit(dtNow,TENS_OF_MINS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,TENS_OF_MINS_GETDIGIT)) {
+    if (GetDigit(dtNewDisplayedTime,TENS_OF_MINS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,TENS_OF_MINS_GETDIGIT)) {
         MoveDigit(tensOfMinutes, GetDigit(dtCurrentDisplayedTime,TENS_OF_MINS_GETDIGIT),WAYPOINT_CLOCK,WAYPOINT_HOME);
         MoveDigit(tensOfMinutes, GetDigit(dtNewDisplayedTime,TENS_OF_MINS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
         }
 
     //compare current hours 
-    if (GetDigit(dtNow,HOURS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,HOURS_GETDIGIT)) {
+    if (GetDigit(dtNewDisplayedTime,HOURS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,HOURS_GETDIGIT)) {
         MoveDigit(hours, GetDigit(dtCurrentDisplayedTime,HOURS_GETDIGIT),WAYPOINT_CLOCK,WAYPOINT_HOME);
         MoveDigit(hours, GetDigit(dtNewDisplayedTime,HOURS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
         }
 
     //compare current 10s of hours 
-    if (GetDigit(dtNow,TENS_OF_HOURS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,TENS_OF_HOURS_GETDIGIT)) {
+    if (GetDigit(dtNewDisplayedTime,TENS_OF_HOURS_GETDIGIT) != GetDigit(dtCurrentDisplayedTime,TENS_OF_HOURS_GETDIGIT)) {
         MoveDigit(tensOfHours, GetDigit(dtCurrentDisplayedTime,TENS_OF_HOURS_GETDIGIT),WAYPOINT_CLOCK,WAYPOINT_HOME);
         MoveDigit(tensOfHours, GetDigit(dtNewDisplayedTime,TENS_OF_HOURS_GETDIGIT),WAYPOINT_HOME,WAYPOINT_CLOCK);
         }
 
-    dtCurrentDisplayedTime = dtNewDisplayedTime;
+    //Set the current time to the new time in 24h format
+    dtCurrentDisplayedTime = dtNow;
 
 
 }
